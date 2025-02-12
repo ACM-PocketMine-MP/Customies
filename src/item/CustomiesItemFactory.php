@@ -14,7 +14,6 @@ use pocketmine\item\ItemTypeIds;
 use pocketmine\item\StringToItemParser;
 use pocketmine\network\mcpe\convert\TypeConverter;
 use pocketmine\network\mcpe\protocol\types\CacheableNbt;
-use pocketmine\network\mcpe\protocol\types\ItemComponentPacketEntry;
 use pocketmine\network\mcpe\protocol\types\ItemTypeEntry;
 use pocketmine\utils\SingletonTrait;
 use pocketmine\utils\Utils;
@@ -29,8 +28,9 @@ final class CustomiesItemFactory {
 	 * @var ItemTypeEntry[]
 	 */
 	private array $itemTableEntries = [];
+
 	/**
-	 * @var ItemComponentPacketEntry[]
+	 * @var ItemTypeEntry[]
 	 */
 	private array $itemComponentEntries = [];
 
@@ -47,7 +47,7 @@ final class CustomiesItemFactory {
 
 	/**
 	 * Returns the item properties CompoundTag which maps out all custom item properties.
-	 * @return ItemComponentPacketEntry[]
+	 * @return ItemTypeEntry[]
 	 */
 	public function getItemComponentEntries(): array {
 		return $this->itemComponentEntries;
@@ -81,15 +81,23 @@ final class CustomiesItemFactory {
 		StringToItemParser::getInstance()->register($identifier, fn() => clone $item);
 
 		if(($componentBased = $item instanceof ItemComponents)) {
-			$this->itemComponentEntries[$identifier] = new ItemComponentPacketEntry($identifier,
-				new CacheableNbt($item->getComponents()
+			$entries = TypeConverter::getInstance()->getItemTypeDictionary()->getEntries();
+			foreach($entries as $entry){
+				$this->itemComponentEntries[$identifier] = new ItemTypeEntry(
+					$identifier, 
+					$itemId, 
+					$componentBased, 
+					$entry->getVersion(), new CacheableNbt($item->getComponents()
 					->setInt("id", $itemId)
 					->setString("name", $identifier)
-				)
-			);
+				));
+			}
 		}
 
-		$this->itemTableEntries[$identifier] = new ItemTypeEntry($identifier, $itemId, $componentBased);
+		$entries = TypeConverter::getInstance()->getItemTypeDictionary()->getEntries();
+		foreach($entries as $entry){
+			$this->itemTableEntries[$identifier] = new ItemTypeEntry($identifier, $itemId, $componentBased, $entry->getVersion(), $entry->getComponentNbt());
+		}
 		CreativeInventory::getInstance()->add($item);
 	}
 
@@ -119,7 +127,10 @@ final class CustomiesItemFactory {
 		$itemId = $block->getIdInfo()->getBlockTypeId();
 		$this->registerCustomItemMapping($identifier, $itemId);
 		StringToItemParser::getInstance()->registerBlock($identifier, fn() => clone $block);
-		$this->itemTableEntries[] = new ItemTypeEntry($identifier, $itemId, false);
+		$entries = TypeConverter::getInstance()->getItemTypeDictionary()->getEntries();
+		foreach($entries as $entry){
+			$this->itemTableEntries[] = new ItemTypeEntry($identifier, $itemId, false, $entry->getVersion(), $entry->getComponentNbt());
+		}
 
 		$blockItemIdMap = BlockItemIdMap::getInstance();
 		$reflection = new ReflectionClass($blockItemIdMap);

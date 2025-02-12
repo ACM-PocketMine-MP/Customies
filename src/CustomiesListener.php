@@ -8,7 +8,7 @@ use customiesdevs\customies\item\CustomiesItemFactory;
 use pocketmine\event\Listener;
 use pocketmine\event\server\DataPacketSendEvent;
 use pocketmine\network\mcpe\protocol\BiomeDefinitionListPacket;
-use pocketmine\network\mcpe\protocol\ItemComponentPacket;
+use pocketmine\network\mcpe\protocol\ItemRegistryPacket;
 use pocketmine\network\mcpe\protocol\ResourcePackStackPacket;
 use pocketmine\network\mcpe\protocol\StartGamePacket;
 use pocketmine\network\mcpe\protocol\types\BlockPaletteEntry;
@@ -19,7 +19,7 @@ use function count;
 
 final class CustomiesListener implements Listener {
 
-	private ?ItemComponentPacket $cachedItemComponentPacket = null;
+	private ?ItemRegistryPacket $cachedItemComponentPacket = null;
 	/** @var ItemTypeEntry[] */
 	private array $cachedItemTable = [];
 	/** @var BlockPaletteEntry[] */
@@ -41,7 +41,7 @@ final class CustomiesListener implements Listener {
 				if($this->cachedItemComponentPacket === null) {
 					// Wait for the data to be needed before it is actually cached. Allows for all blocks and items to be
 					// registered before they are cached for the rest of the runtime.
-					$this->cachedItemComponentPacket = ItemComponentPacket::create(CustomiesItemFactory::getInstance()->getItemComponentEntries());
+					$this->cachedItemComponentPacket = ItemRegistryPacket::create(CustomiesItemFactory::getInstance()->getItemComponentEntries());
 				}
 				foreach($event->getTargets() as $session){
 					$session->sendDataPacket($this->cachedItemComponentPacket);
