@@ -7,7 +7,6 @@ use customiesdevs\customies\block\CustomiesBlockFactory;
 use customiesdevs\customies\item\CustomiesItemFactory;
 use pocketmine\event\Listener;
 use pocketmine\event\server\DataPacketSendEvent;
-use pocketmine\network\mcpe\protocol\BiomeDefinitionListPacket;
 use pocketmine\network\mcpe\protocol\ItemRegistryPacket;
 use pocketmine\network\mcpe\protocol\ResourcePackStackPacket;
 use pocketmine\network\mcpe\protocol\StartGamePacket;
@@ -17,16 +16,15 @@ use pocketmine\network\mcpe\protocol\types\ItemTypeEntry;
 use function array_merge;
 use function count;
 
-final class CustomiesListener implements Listener {
+final class CustomiesListener implements Listener{
 
-	private ?ItemRegistryPacket $cachedItemComponentPacket = null;
 	/** @var ItemTypeEntry[] */
 	private array $cachedItemTable = [];
 	/** @var BlockPaletteEntry[] */
 	private array $cachedBlockPalette = [];
 	private Experiments $experiments;
 
-	public function __construct() {
+	public function __construct(){
 		$this->experiments = new Experiments([
 			// "data_driven_items" is required for custom blocks to render in-game. With this disabled, they will be
 			// shown as the UPDATE texture block.
@@ -34,27 +32,19 @@ final class CustomiesListener implements Listener {
 		], true);
 	}
 
-	public function onDataPacketSend(DataPacketSendEvent $event): void {
+	public function onDataPacketSend(DataPacketSendEvent $event): void{
 		foreach($event->getPackets() as $packet){
-			if($packet instanceof BiomeDefinitionListPacket) {
-				// ItemComponentPacket needs to be sent after the BiomeDefinitionListPacket.
-				if($this->cachedItemComponentPacket === null) {
-					// Wait for the data to be needed before it is actually cached. Allows for all blocks and items to be
-					// registered before they are cached for the rest of the runtime.
-					$this->cachedItemComponentPacket = ItemRegistryPacket::create(CustomiesItemFactory::getInstance()->getItemComponentEntries());
-				}
-				foreach($event->getTargets() as $session){
-					$session->sendDataPacket($this->cachedItemComponentPacket);
-				}
+			if($packet instanceof ItemRegistryPacket) {
+				(function(): void{
+					$this->entries = array_merge($this->entries, CustomiesItemFactory::getInstance()->getItemTableEntries());
+				})->call($packet);
 			} elseif($packet instanceof StartGamePacket) {
 				if(count($this->cachedItemTable) === 0) {
 					// Wait for the data to be needed before it is actually cached. Allows for all blocks and items to be
 					// registered before they are cached for the rest of the runtime.
-					$this->cachedItemTable = CustomiesItemFactory::getInstance()->getItemTableEntries();
 					$this->cachedBlockPalette = CustomiesBlockFactory::getInstance()->getBlockPaletteEntries();
 				}
 				$packet->levelSettings->experiments = $this->experiments;
-				$packet->itemTable = array_merge($packet->itemTable, $this->cachedItemTable);
 				$packet->blockPalette = $this->cachedBlockPalette;
 			} elseif($packet instanceof ResourcePackStackPacket) {
 				$packet->experiments = $this->experiments;
